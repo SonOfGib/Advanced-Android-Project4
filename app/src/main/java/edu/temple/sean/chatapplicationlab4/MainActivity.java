@@ -2,20 +2,26 @@ package edu.temple.sean.chatapplicationlab4;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,6 +41,10 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.firebase.iid.InstanceIdResult;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -46,26 +56,31 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, PartnerFragment.OnListFragmentInteractionListener {
 
-    boolean mMapView = false;
-    GoogleMap mMap = null;
-    ArrayList<Partner> mPartners;
-    HashMap<String,Marker> mMarkers = new HashMap<>();
-    Context mContext;
-    PartnerFragment mPartFrag;
-    String mUsername;
-    Location mPosition;
-    boolean mLocationDisabled = false;
 
-    LocationManager lm;
-    LocationListener ll;
-    boolean twoPanes = false;
-    Handler restCallHandler = new Handler();
-    int delay = 30*1000; //1 second=1000 milisecond
-    Runnable runnable;
-    String url ="https://kamorris.com/lab/get_locations.php";
-    String postURL = "https://kamorris.com/lab/register_location.php";
-    RequestQueue queue;
-    SharedPreferences sharedPref;
+    private boolean mMapView = false;
+    private GoogleMap mMap = null;
+    private ArrayList<Partner> mPartners;
+    private HashMap<String,Marker> mMarkers = new HashMap<>();
+    private Context mContext;
+    private PartnerFragment mPartFrag;
+    private String mUsername;
+    private Location mPosition;
+    private boolean mLocationDisabled = false;
+    private String mFCMToken;
+
+    private LocationManager lm;
+    private LocationListener ll;
+    private boolean twoPanes = false;
+    private Handler restCallHandler = new Handler();
+    private int delay = 30*1000; //1 second=1000 milisecond
+    private Runnable runnable;
+    private String url ="https://kamorris.com/lab/get_locations.php";
+    private String postURL = "https://kamorris.com/lab/register_location.php";
+    private String postRegisterURL = "https://kamorris.com/lab/fcm_register.php";
+    private RequestQueue queue;
+    private SharedPreferences sharedPref;
+
+    private static final String USER_PREF_KEY = "USERNAME_PREF";
 
 
 
@@ -91,6 +106,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             public void onProviderDisabled(String provider) {}
         };
+        FirebaseInstanceId.getInstance().getInstanceId()
+                .addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<InstanceIdResult> task) {
+                        if (!task.isSuccessful()) {
+                            Log.w("TOKEN GET", "getInstanceId failed", task.getException());
+                            return;
+                        }
+                        // Get new Instance ID token
+                        String token = task.getResult().getToken();
+                        // Log and toast
+                        Log.d("TOKEN GET", token);
+                        mFCMToken = token;
+
+                    }
+                });
         ll = locationListener;
         lm = locationManager;
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -105,25 +136,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
 
-        final TextView usernameField = findViewById(R.id.editText);
         mContext = this;
         queue = Volley.newRequestQueue(this);
         //  Determine if only one or two panes are visible
         twoPanes = (findViewById(R.id.mapFragment) != null);
         PartnerFragment partFrag = new PartnerFragment();
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.mapFragment, partFrag).commit();
+                .replace(R.id.listFragment, partFrag).commit();
         mPartFrag = partFrag;
         getRequest();
         // get or create SharedPreferences
         sharedPref = getSharedPreferences("androidChatApp", MODE_PRIVATE);
-        // save your string in SharedPreferences
-        String storedName = sharedPref.getString("username", null);
-        if(storedName != null){
-            usernameField.setText(storedName);
-            mUsername = storedName;
-            post(mPosition);
-        }
+
+        //init username with prefs
+        initUsername();
 
         if (twoPanes){
             SupportMapFragment map = new SupportMapFragment();
@@ -145,12 +171,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     if(!mMapView) {
                         SupportMapFragment mapFragment = new SupportMapFragment();
-                        transaction.replace(R.id.mapFragment, mapFragment).commit();
+                        transaction.replace(R.id.listFragment, mapFragment).commit();
                         mapFragment.getMapAsync(MainActivity.this);
                     }
                     else{
                         PartnerFragment partnerFragment = new PartnerFragment();
-                        transaction.replace(R.id.mapFragment, partnerFragment).commit();
+                        transaction.replace(R.id.listFragment, partnerFragment).commit();
                         mPartFrag = partnerFragment;
                         getRequest();
                     }
@@ -165,18 +191,60 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             });
         }
 
-        Button submitBtn = findViewById(R.id.submitButton);
-        submitBtn.setOnClickListener(new View.OnClickListener() {
+    }
+
+    //Prompt for username if we don't have one yet, otherwise get it from prefs and keep going.
+    private void initUsername() {
+        TextView usernameField = findViewById(R.id.usernameView);
+        String storedName = sharedPref.getString(USER_PREF_KEY, null);
+        if(storedName != null){
+            mUsername = storedName;
+            post(mPosition);
+            usernameField.setText("Username: "+ mUsername);
+        }
+        else{
+            //We don't have a username, time for first time setup!
+            buildUsernameDialog();
+            post(mPosition);
+        }
+    }
+
+
+    private void buildUsernameDialog() {
+        //Preparing views
+        LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+        View layout = inflater.inflate(R.layout.dialog_layout, (ViewGroup) findViewById(R.id.layout_root));
+        //layout_root should be the name of the "top-level" layout node in the dialog_layout.xml file.
+        final EditText usernameBox = layout.findViewById(R.id.usernameDialogField);
+
+        //Building dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+        builder.setView(layout);
+        builder.setCancelable(false);
+        builder.setPositiveButton("Save", new DialogInterface.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                if(!usernameField.getText().toString().equals("")) {
-                    mUsername = usernameField.getText().toString();
-                    sharedPref.edit().putString("username", mUsername).commit();
-                    post(mPosition);
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+                String localUsername = usernameBox.getText().toString();
+                //Generate keys with our username.
+                //TODO
+                //mKeyService.generateMyKeys();
+                boolean committed = sharedPref.edit().putString(USER_PREF_KEY, localUsername).commit();
+                if (committed) {
+                    mUsername = localUsername;
                 }
             }
         });
+        AlertDialog dialog = builder.create();
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                initUsername();
+                postRegister();
 
+            }
+        });
+        dialog.show();
     }
 
     @Override
@@ -189,6 +257,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                             != PackageManager.PERMISSION_GRANTED) {
+                        Toast.makeText(this, "This app will not be usable without location permissions.", Toast.LENGTH_LONG).show();
                     }
                     lm.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                             0, 10, ll);
@@ -196,7 +265,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 } else {
                     mLocationDisabled = true;
                 }
-                return;
+                break;
             }
 
             // other 'case' lines to check for other
@@ -282,6 +351,35 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Volley.newRequestQueue(mContext).add(stringRequest);
     }
 
+    private void postRegister(){
+        if(mUsername == null || mFCMToken == null){
+            return;
+        }
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, postRegisterURL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                Log.d("Volley Register Result", ""+response); //the response contains the result from the server, a json string or any other object returned by your server
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                error.printStackTrace(); //log the error resulting from the request for diagnosis/debugging
+
+            }
+        }){
+
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String, String> postMap = new HashMap<>();
+                postMap.put("user", mUsername);
+                postMap.put("token", ""+ mFCMToken);
+                return postMap;
+            }
+        };
+        Volley.newRequestQueue(mContext).add(stringRequest);
+    }
+
 
     private void convertJsonToArrayList(String json){
         ArrayList<Partner> arrayList = new ArrayList<>();
@@ -295,18 +393,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         (float) jsonObj.getDouble("longitude"));
                 LatLng l = data.getLastKnownPosition();
                 if (mPosition == null) {
-                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                            != PackageManager.PERMISSION_GRANTED && !mLocationDisabled) {
-                        ActivityCompat.requestPermissions(this,
-                                new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 111);
-                    }
-                    Location lo = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                    if(lo != null){
-                        mPosition = lo;
-                        float distance = Math.abs(distance((float) l.latitude, (float) l.longitude,
-                                (float) mPosition.getLatitude(), (float) mPosition.getLongitude()));
-                        data.setDistance(distance);
-                    }
+                    //TODO get last known app position from prefs.
+                    data.setDistance(0.0f);
                 }
                 else{
                     float distance = Math.abs(distance((float) l.latitude, (float) l.longitude,

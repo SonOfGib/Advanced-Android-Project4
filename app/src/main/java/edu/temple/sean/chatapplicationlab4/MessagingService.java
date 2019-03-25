@@ -1,5 +1,6 @@
 package edu.temple.sean.chatapplicationlab4;
 
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
@@ -7,6 +8,13 @@ import com.google.firebase.messaging.RemoteMessage;
 
 
 public class MessagingService extends FirebaseMessagingService {
+
+
+    //Commit new token to prefs so we can register our user.
+    @Override
+    public void onNewToken(String s) {
+        Log.d("NEW_TOKEN", s);
+    }
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
