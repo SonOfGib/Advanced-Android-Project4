@@ -33,8 +33,15 @@ public class PartnerRecyclerViewAdapter extends RecyclerView.Adapter<PartnerRecy
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
-        View view = inflater.inflate(R.layout.fragment_partner, viewGroup, false);
-        ViewHolder holder = new ViewHolder(view);
+        final View root = inflater.inflate(R.layout.fragment_partner, viewGroup, false);
+        root.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(final View view) {
+                //int itemPosition = root.getChildLayoutPosition(view);
+                //String item = mList.get(itemPosition);
+            }
+        });
+        ViewHolder holder = new ViewHolder(root);
         return holder;
     }
 

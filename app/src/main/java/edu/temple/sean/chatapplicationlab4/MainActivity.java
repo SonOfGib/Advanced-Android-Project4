@@ -3,6 +3,7 @@ package edu.temple.sean.chatapplicationlab4;
 import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -54,7 +55,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.temple.sean.chatapplicationlab4.chat.ChatActivity;
+
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, PartnerFragment.OnListFragmentInteractionListener {
+
 
 
     private boolean mMapView = false;
@@ -81,6 +85,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private SharedPreferences sharedPref;
 
     private static final String USER_PREF_KEY = "USERNAME_PREF";
+    public static final String USERNAME_EXTRA = "USERNAME_EXTRA";
+    public static final String PARTNER_NAME_EXTRA = "PARTNER_EXTRA";
 
 
 
@@ -475,5 +481,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onListFragmentInteraction(Partner item) {
         //TODO: Is this necessary?
+        Intent intent = new Intent(this, ChatActivity.class);
+        startActivity(intent);
     }
 }

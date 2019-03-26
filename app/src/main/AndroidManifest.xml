@@ -15,14 +15,20 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyDWRjX1XVwj8rTLcOiYMfMcI1OEDP85-6w"/>
-        <activity android:name=".MainActivity">
+        <activity android:name=".MainActivity"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".chat.ChatActivity"
+            android:launchMode="singleTop">
+
+        </activity>
         <service android:name=".MessagingService" />
+        <service android:name=".KeyService" />
     </application>
 
 </manifest>
