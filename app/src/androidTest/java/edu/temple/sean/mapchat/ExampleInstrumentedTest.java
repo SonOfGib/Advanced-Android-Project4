@@ -1,4 +1,4 @@
-package edu.temple.sean.chatapplicationlab4;
+package edu.temple.sean.mapchat;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

@@ -8,9 +8,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:459221917665:android:a321a916b1a536ae",
+        "mobilesdk_app_id": "1:317716252612:android:f1f037bede9124e7",
         "android_client_info": {
-          "package_name": "edu.temple.sean.chatapplicationlab4"
+          "package_name": "edu.temple.mapchat"
         }
       },
       "oauth_client": [

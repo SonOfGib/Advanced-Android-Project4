@@ -1,19 +1,28 @@
-package edu.temple.sean.chatapplicationlab4;
+package edu.temple.mapchat;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -46,16 +55,20 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.InstanceIdResult;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.temple.sean.chatapplicationlab4.chat.ChatActivity;
+import edu.temple.mapchat.chat.ChatActivity;
+import edu.temple.mapchat.chat.Message;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, PartnerFragment.OnListFragmentInteractionListener {
 
@@ -87,13 +100,60 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final String USER_PREF_KEY = "USERNAME_PREF";
     public static final String USERNAME_EXTRA = "USERNAME_EXTRA";
     public static final String PARTNER_NAME_EXTRA = "PARTNER_EXTRA";
+    public static final String CHANNEL_ID = "feb9406e-25c7-4b9b-a50a-317c3f39ba44";
 
 
+
+    private BroadcastReceiver messageReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d("BROADCAST", "Received");
+            String to = intent.getStringExtra("to");
+            String sender = intent.getStringExtra("partner");
+            String content = intent.getStringExtra("message");
+
+            Message msg = new Message(sender, content);
+            ArrayList<Message> messageList = new ArrayList<>();
+            String messages = sharedPref.getString(ChatActivity.CHAT_TAG_PREFIX + sender,
+                    "");
+            if(!messages.equals("")){
+                messageList = parseLogJson(messages);
+            }
+            messageList.add(msg);
+            Gson gson = new Gson();
+            String outJson = gson.toJson(messageList);
+
+            sharedPref.edit().putString(ChatActivity.CHAT_TAG_PREFIX + sender, outJson).commit();
+
+            Intent newIntent = new Intent(MainActivity.this, ChatActivity.class);
+            newIntent.putExtra(USERNAME_EXTRA, to);
+            newIntent.putExtra(PARTNER_NAME_EXTRA, sender);
+            PendingIntent pi = PendingIntent.getActivity(mContext,111, newIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+            //Build a notification
+
+            NotificationCompat.Builder builder =
+                    new NotificationCompat.Builder(MainActivity.this, CHANNEL_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher_round)
+                    .setContentTitle("You have a new message.")
+                    .setContentText(sender + ": " +content)
+                    .setContentIntent(pi)
+                    .setAutoCancel(true)
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+            NotificationManagerCompat notificationManager =
+                    NotificationManagerCompat.from(MainActivity.this);
+            // notificationId is a unique int for each notification that you must define
+            notificationManager.notify(1010, builder.build());
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        createNotificationChannel();
 
         LocationManager locationManager = getSystemService(LocationManager.class);
         // Define a listener that responds to location updates
@@ -298,6 +358,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         lm.removeUpdates(ll);
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver,
+                new IntentFilter("new_message"));
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
+    }
+
     /**
      * Make a get request to the server, fetching the list of partners.
      */
@@ -489,5 +562,30 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         intent.putExtra(USERNAME_EXTRA, mUsername);
         intent.putExtra(PARTNER_NAME_EXTRA, item.getName());
         startActivity(intent);
+    }
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Normal", importance);
+            channel.setDescription("The default channel.");
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+    private ArrayList<Message> parseLogJson(String jsonChatLog) {
+        Gson gson = new Gson();
+        if(!jsonChatLog.equals("")) {
+            Type type = new TypeToken<ArrayList<Message>>(){}.getType();
+            return gson.fromJson(jsonChatLog, type);
+        }
+        else{
+            return null;
+        }
     }
 }

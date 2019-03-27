@@ -1,4 +1,4 @@
-package edu.temple.sean.chatapplicationlab4.chat;
+package edu.temple.mapchat.chat;
 
 
 import android.content.Context;
@@ -12,7 +12,7 @@ import android.widget.TextView;
 
 import java.util.List;
 
-import edu.temple.sean.chatapplicationlab4.R;
+import edu.temple.mapchat.R;
 
 public class MessageListAdapter extends RecyclerView.Adapter {
 

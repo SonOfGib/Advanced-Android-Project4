@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "edu.temple.sean.chatapplicationlab4"
+        applicationId "edu.temple.mapchat"
         minSdkVersion 23
         targetSdkVersion 28
         versionCode 1

@@ -1,6 +1,4 @@
-package edu.temple.sean.chatapplicationlab4.chat;
-
-import edu.temple.sean.chatapplicationlab4.Partner;
+package edu.temple.mapchat.chat;
 
 public class Message {
 

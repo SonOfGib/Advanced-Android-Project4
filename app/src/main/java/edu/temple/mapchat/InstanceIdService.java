@@ -1,4 +1,4 @@
-package edu.temple.sean.chatapplicationlab4;
+package edu.temple.mapchat;
 
 import android.util.Log;
 

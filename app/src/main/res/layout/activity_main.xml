@@ -5,7 +5,7 @@
     android:focusableInTouchMode="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="edu.temple.sean.chatapplicationlab4.MainActivity">
+    tools:context=".MainActivity">
 
 
     <TextView

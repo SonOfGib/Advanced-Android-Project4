@@ -1,6 +1,4 @@
-package edu.temple.sean.chatapplicationlab4;
-
-import android.support.annotation.NonNull;
+package edu.temple.mapchat;
 
 import com.google.android.gms.maps.model.LatLng;
 

@@ -1,10 +1,13 @@
-package edu.temple.sean.chatapplicationlab4.chat;
+package edu.temple.mapchat.chat;
 
 
 import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -14,7 +17,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
@@ -29,8 +31,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.temple.sean.chatapplicationlab4.MainActivity;
-import edu.temple.sean.chatapplicationlab4.R;
+import edu.temple.mapchat.MainActivity;
+import edu.temple.mapchat.R;
 
 public class ChatActivity extends AppCompatActivity {
 
@@ -41,11 +43,41 @@ public class ChatActivity extends AppCompatActivity {
     private ArrayList<Message> mMessageList;
     private String mSavedChatTag;
     private SharedPreferences mPrefs;
-    private BroadcastReceiver mReceiver;
 
     private final String sendMessageURL = "https://kamorris.com/lab/send_message.php";
 
     public static final String CHAT_TAG_PREFIX = "CHAT_LOG_";
+
+    //receive messages
+    private BroadcastReceiver messageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d("BROADCAST", "Received");
+            String to = intent.getStringExtra("to");
+            String sender = intent.getStringExtra("partner");
+            String content = intent.getStringExtra("message");
+            if(sender.equals(mPartnerName)) {
+                Message message = new Message(sender, content);
+                mMessageList.add(message);
+                mMessageAdapter.notifyDataSetChanged();
+                mMessageRecycler.scrollToPosition(mMessageList.size() - 1);
+            }
+            //else not our message to deal with.
+        }
+    };
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver,
+                new IntentFilter("new_message"));
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +87,7 @@ public class ChatActivity extends AppCompatActivity {
         Intent intent = getIntent();
         mUsername = intent.getStringExtra(MainActivity.USERNAME_EXTRA);
         mPartnerName = intent.getStringExtra(MainActivity.PARTNER_NAME_EXTRA);
+        Log.d("Intent Contents", mUsername + ", " + mPartnerName);
 
         mSavedChatTag = CHAT_TAG_PREFIX + mPartnerName;
 
@@ -72,6 +105,8 @@ public class ChatActivity extends AppCompatActivity {
         mMessageAdapter = new MessageListAdapter(this, mMessageList, mUsername);
         mMessageRecycler.setLayoutManager(new LinearLayoutManager(this));
         mMessageRecycler.setAdapter(mMessageAdapter);
+        if(mMessageList.size() - 1 > 0)
+            mMessageRecycler.scrollToPosition(mMessageList.size() - 1);
 
         //Setup send button.
         //TODO encrypt sent text.
