@@ -8,17 +8,26 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import edu.temple.sean.chatapplicationlab4.MainActivity;
 import edu.temple.sean.chatapplicationlab4.R;
@@ -84,6 +93,7 @@ public class ChatActivity extends AppCompatActivity {
                 mMessageList.add(msg);
                 mMessageAdapter.notifyDataSetChanged();
                 messageContent.setText("");
+                sendMessage(msg);
 
                 String json = logToJson();
                 mPrefs.edit().putString(mSavedChatTag, json).apply();
@@ -95,6 +105,40 @@ public class ChatActivity extends AppCompatActivity {
         });
 
 
+    }
+
+    private void sendMessage(Message msg) {
+        final String user = msg.getSender();
+        final String partnerUser = mPartnerName;
+        final String message = msg.getContent();
+
+        Log.d("Send Message Post", user + ", " + partnerUser + ", " + message);
+        if(user == null || partnerUser.equals("")|| message == null){
+            return;
+        }
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, sendMessageURL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                Log.d("Send Message Result", ""+response); //the response contains the result from the server, a json string or any other object returned by your server
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                error.printStackTrace(); //log the error resulting from the request for diagnosis/debugging
+
+            }
+        }){
+            @Override
+            protected Map<String, String> getParams(){
+                Map<String, String> postMap = new HashMap<>();
+                postMap.put("user", user);
+                postMap.put("partneruser", ""+partnerUser);
+                postMap.put("message", ""+ message);
+                return postMap;
+            }
+        };
+        Volley.newRequestQueue(this).add(stringRequest);
     }
 
     @Override

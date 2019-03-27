@@ -29,54 +29,27 @@ public class MessagingService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
-//        super.onMessageReceived(remoteMessage);
-//
-//        // TODO(developer): Handle FCM messages here.
-//        // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
-//        Log.d("FirebaseMessagingServ", "From: " + remoteMessage.getFrom());
-//
-//        // Check if message contains a data payload.
-//        if (remoteMessage.getData().size() > 0) {
-//            Log.d("FirebaseMessagingServ", "Message data payload: " + remoteMessage.getData().get("payload"));
-//            try {
-//                JSONObject json = new JSONObject(remoteMessage.getData().get("payload"));
-//                manageMessageJSON(json);
-//            } catch (JSONException e) {
-//               Log.e("FirebaseMessagingServ", "Error", e);
-//            }
-//
-//        }
-//
-//        // Check if message contains a notification payload.
-//        if (remoteMessage.getNotification() != null) {
-//            Log.d("FirebaseMessagingServ", "Message Notification Body: " + remoteMessage.getNotification().getBody());
-//        }
-//
-//        // Also if you intend on generating your own notifications as a result of a received FCM
-//        // message, here is where that should be initiated. See sendNotification method below.
-        // ...
+        super.onMessageReceived(remoteMessage);
 
         // TODO(developer): Handle FCM messages here.
         // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
-        Log.d("T", "From: " + remoteMessage.getFrom());
+        Log.d("FirebaseMessagingServ", "From: " + remoteMessage.getFrom());
 
         // Check if message contains a data payload.
         if (remoteMessage.getData().size() > 0) {
-            Log.d("T", "Message data payload: " + remoteMessage.getData());
-
-            if (/* Check if data needs to be processed by long running job */ true) {
-                // For long-running tasks (10 seconds or more) use Firebase Job Dispatcher.
-                //scheduleJob();
-            } else {
-                // Handle message within 10 seconds
-                //handleNow();
+            Log.d("FirebaseMessagingServ", "Message data payload: " + remoteMessage.getData().get("payload"));
+            try {
+                JSONObject json = new JSONObject(remoteMessage.getData().get("payload"));
+                manageMessageJSON(json);
+            } catch (JSONException e) {
+               Log.e("FirebaseMessagingServ", "Error", e);
             }
 
         }
 
         // Check if message contains a notification payload.
         if (remoteMessage.getNotification() != null) {
-            Log.d("T", "Message Notification Body: " + remoteMessage.getNotification().getBody());
+            Log.d("FirebaseMessagingServ", "Message Notification Body: " + remoteMessage.getNotification().getBody());
         }
 
         // Also if you intend on generating your own notifications as a result of a received FCM
