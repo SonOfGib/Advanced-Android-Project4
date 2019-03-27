@@ -5,17 +5,24 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.nfc.NdefMessage;
+import android.nfc.NdefRecord;
+import android.nfc.NfcAdapter;
+import android.nfc.NfcEvent;
 import android.os.Build;
 import android.os.Handler;
+import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentTransaction;
@@ -63,6 +70,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.lang.reflect.Type;
+import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,7 +78,8 @@ import java.util.Map;
 import edu.temple.mapchat.chat.ChatActivity;
 import edu.temple.mapchat.chat.Message;
 
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, PartnerFragment.OnListFragmentInteractionListener {
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback,
+        PartnerFragment.OnListFragmentInteractionListener, NfcAdapter.CreateNdefMessageCallback {
 
 
 
@@ -84,6 +93,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Location mPosition;
     private boolean mLocationDisabled = false;
     private String mFCMToken;
+    private boolean mBounded = false;
+    private KeyService mKeyService;
+    private NfcAdapter mNfcAdapter;
+    private PendingIntent mPendingIntent;
 
     private LocationManager lm;
     private LocationListener ll;
@@ -103,21 +116,35 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public static final String CHANNEL_ID = "feb9406e-25c7-4b9b-a50a-317c3f39ba44";
 
 
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mBounded = false;
+            mKeyService = null;
+        }
 
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mBounded = true;
+            KeyService.LocalBinder mLocalBinder = (KeyService.LocalBinder) service;
+
+            mKeyService = mLocalBinder.getService();
+            //If we have been requested to store a key on connection ...
+        }
+    };
     private BroadcastReceiver messageReceiver = new BroadcastReceiver() {
-
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d("BROADCAST", "Received");
             String to = intent.getStringExtra("to");
             String sender = intent.getStringExtra("partner");
             String content = intent.getStringExtra("message");
-
+            content = mKeyService.decrypt(content);
             Message msg = new Message(sender, content);
             ArrayList<Message> messageList = new ArrayList<>();
             String messages = sharedPref.getString(ChatActivity.CHAT_TAG_PREFIX + sender,
                     "");
-            if(!messages.equals("")){
+            if (!messages.equals("")) {
                 messageList = parseLogJson(messages);
             }
             messageList.add(msg);
@@ -129,18 +156,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             Intent newIntent = new Intent(MainActivity.this, ChatActivity.class);
             newIntent.putExtra(USERNAME_EXTRA, to);
             newIntent.putExtra(PARTNER_NAME_EXTRA, sender);
-            PendingIntent pi = PendingIntent.getActivity(mContext,111, newIntent,
+            PendingIntent pi = PendingIntent.getActivity(mContext, 111, newIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT);
             //Build a notification
 
             NotificationCompat.Builder builder =
                     new NotificationCompat.Builder(MainActivity.this, CHANNEL_ID)
-                    .setSmallIcon(R.mipmap.ic_launcher_round)
-                    .setContentTitle("You have a new message.")
-                    .setContentText(sender + ": " +content)
-                    .setContentIntent(pi)
-                    .setAutoCancel(true)
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                            .setSmallIcon(R.mipmap.ic_launcher_round)
+                            .setContentTitle("You have a new message.")
+                            .setContentText(sender + ": " + content)
+                            .setContentIntent(pi)
+                            .setAutoCancel(true)
+                            .setPriority(NotificationCompat.PRIORITY_DEFAULT);
             NotificationManagerCompat notificationManager =
                     NotificationManagerCompat.from(MainActivity.this);
             // notificationId is a unique int for each notification that you must define
@@ -154,6 +181,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         setContentView(R.layout.activity_main);
 
         createNotificationChannel();
+        Intent intent = new Intent(this, KeyService.class);
+
+
+        bindService(intent, mConnection, BIND_AUTO_CREATE);
 
         LocationManager locationManager = getSystemService(LocationManager.class);
         // Define a listener that responds to location updates
@@ -210,18 +241,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.listFragment, partFrag).commit();
         mPartFrag = partFrag;
-        getRequest();
         // get or create SharedPreferences
         sharedPref = getSharedPreferences("androidChatApp", MODE_PRIVATE);
 
         //init username with prefs
         initUsername();
 
+        Intent nfcIntent = new Intent(this, MainActivity.class);
+        nfcIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        mPendingIntent = PendingIntent.getActivity(this, 0, nfcIntent, 0);
+
+        mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        mNfcAdapter.setNdefPushMessageCallback(this, this);
+
         if (twoPanes){
             SupportMapFragment map = new SupportMapFragment();
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.mapFragment, map).commit();
             map.getMapAsync(this);
+            getRequest();
         }
         else{
             Button swapViewButton = findViewById(R.id.switchViewBtn);
@@ -229,6 +267,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 swapViewButton.setText("View List");
             else
                 swapViewButton.setText("View Map");
+            getRequest();
 
             swapViewButton.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -281,7 +320,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         View layout = inflater.inflate(R.layout.dialog_layout, (ViewGroup) findViewById(R.id.layout_root));
         //layout_root should be the name of the "top-level" layout node in the dialog_layout.xml file.
-        final EditText usernameBox = layout.findViewById(R.id.usernameDialogField);
+        final EditText usernameBox = layout.findViewById(R.id.usernameView);
 
         //Building dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
@@ -293,8 +332,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 dialog.dismiss();
                 String localUsername = usernameBox.getText().toString();
                 //Generate keys with our username.
-                //TODO
-                //mKeyService.generateMyKeys();
+                mKeyService.generateMyKeys();
                 boolean committed = sharedPref.edit().putString(USER_PREF_KEY, localUsername).commit();
                 if (committed) {
                     mUsername = localUsername;
@@ -340,8 +378,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+            readPayload(intent);
+        }
+    }
+
+    @Override
     protected void onResume() {
         //start handler as activity become visible
+
+        mNfcAdapter.enableForegroundDispatch(this, mPendingIntent, null, null);
+
         restCallHandler.postDelayed( runnable = new Runnable() {
             public void run() {
                 getRequest();
@@ -349,7 +398,40 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }, delay);
 
+
         super.onResume();
+    }
+
+    private void readPayload(Intent intent) {
+        String payload = new String(
+                ((NdefMessage) intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)[0])
+                        .getRecords()[0]
+                        .getPayload());
+        Toast.makeText(this, "Recieved Key", Toast.LENGTH_LONG).show();
+
+        //Lop off the 'en' language code.
+        String jsonString = payload.substring(3);
+        Log.d("Tag debug", jsonString);
+        if(jsonString.equals("")){
+            Log.d("Message Recieved?", "Message was empty!");
+        }
+        else {
+            try {
+                JSONObject json = new JSONObject(jsonString);
+                String owner = json.getString("user");
+                String pemKey = json.getString("key");
+                //if(mBounded)
+                    mKeyService.storePublicKeyPEM(owner, pemKey);
+//                else{
+//                    mStoreKeyWhenReady = true;
+//                    mTempOwner = owner;
+//                    mTempPemKey = pemKey;
+//                }
+            }
+            catch (JSONException e){
+                Log.e("JSON Exception", "Key Problem", e);
+            }
+        }
     }
 
     @Override
@@ -363,12 +445,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onStart();
         LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver,
                 new IntentFilter("new_message"));
+        if (mBounded) {
+            unbindService(mConnection);
+            mBounded = false;
+        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
+        if (mBounded) {
+            unbindService(mConnection);
+            mBounded = false;
+        }
     }
 
     /**
@@ -473,6 +563,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 LatLng l = data.getLastKnownPosition();
                 if (mPosition == null) {
                     //TODO get last known app position from prefs.
+                    //TODO store mPosition is savedInstanceState
                     data.setDistance(0.0f);
                 }
                 else{
@@ -514,6 +605,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onPause() {
         restCallHandler.removeCallbacks(runnable); //stop handler when activity not visible
+        mNfcAdapter.disableForegroundDispatch(this);
         super.onPause();
     }
 
@@ -550,12 +642,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
 
-    //Useless
     @Override
     public void onListFragmentInteraction(Partner item) {
         Intent intent = new Intent(this, ChatActivity.class);
+
+
         if(item.getName().equals(mUsername)){
             Toast.makeText(this, "You can't send a message to yourself!",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        RSAPublicKey pubKey = mKeyService.getPublicKey(item.getName());
+        if(pubKey == null){
+            Toast.makeText(this, "You do not have a shared key for " +item.getName(),
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -587,5 +686,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         else{
             return null;
         }
+    }
+
+    @Override
+    public NdefMessage createNdefMessage(NfcEvent event) {
+        String payload = "";
+        String pubKey = mKeyService.getMyPublicKey();
+        if(pubKey.equals("")){
+            Log.d("SEND EMPTY KEY", "KEY WAS EMPTY!");
+        }
+        else{
+            payload = "{\"user\":\""+ mUsername +"\",\"key\":\""+ pubKey +"\"}";
+            Log.d("SENT KEY PAYLOAD", payload);
+        }
+        NdefRecord record = NdefRecord.createTextRecord(null, payload);
+        NdefMessage msg = new NdefMessage(new NdefRecord[]{record});
+
+        return msg;
     }
 }

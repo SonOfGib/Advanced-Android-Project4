@@ -76,17 +76,17 @@ public class MessagingService extends FirebaseMessagingService {
             String sender = json.getString("from");
             String content = json.getString("message");
             //Broadcast that a message has been received for the chat activity, add message to stored list.
-            Message msg = new Message(sender, content);
-            ArrayList<Message> messageList = new ArrayList<>();
+//            Message msg = new Message(sender, content);
+//            ArrayList<Message> messageList = new ArrayList<>();
 
-            SharedPreferences prefs = getSharedPreferences("androidChatApp", MODE_PRIVATE);
-            String messages = prefs.getString(ChatActivity.CHAT_TAG_PREFIX + sender, "");
-            if(!messages.equals("")){
-                messageList = parseLogJson(messages);
-            }
-            messageList.add(msg);
-            Gson gson = new Gson();
-            String outJson = gson.toJson(messageList);
+//            SharedPreferences prefs = getSharedPreferences("androidChatApp", MODE_PRIVATE);
+//            String messages = prefs.getString(ChatActivity.CHAT_TAG_PREFIX + sender, "");
+//            if(!messages.equals("")){
+//                messageList = parseLogJson(messages);
+//            }
+//            messageList.add(msg);
+//            Gson gson = new Gson();
+//            String outJson = gson.toJson(messageList);
 
             Log.d("Message Received", content);
 
@@ -98,11 +98,11 @@ public class MessagingService extends FirebaseMessagingService {
                 localBroadcastManager.sendBroadcast(intent);
             }
             else{
-                prefs.edit().putString(ChatActivity.CHAT_TAG_PREFIX + sender, outJson).apply();
-
                 Intent newIntent = new Intent(this, ChatActivity.class);
+
                 newIntent.putExtra(USERNAME_EXTRA, to);
                 newIntent.putExtra(PARTNER_NAME_EXTRA, sender);
+                newIntent.putExtra("content", content);
                 PendingIntent pi = PendingIntent.getActivity(this,111, newIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT);
                 //Build a notification
@@ -111,7 +111,7 @@ public class MessagingService extends FirebaseMessagingService {
                         new NotificationCompat.Builder(this, CHANNEL_ID)
                                 .setSmallIcon(R.mipmap.ic_launcher_round)
                                 .setContentTitle("You have a new message.")
-                                .setContentText(sender + ": " +content)
+                                .setContentText(sender + " sent you a message.")
                                 .setContentIntent(pi)
                                 .setAutoCancel(true)
                                 .setPriority(NotificationCompat.PRIORITY_DEFAULT);

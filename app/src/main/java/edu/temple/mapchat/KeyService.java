@@ -48,7 +48,7 @@ public class KeyService extends Service {
      * IPC.
      */
     public class LocalBinder extends Binder {
-        KeyService getService() {
+        public KeyService getService() {
             return KeyService.this;
         }
     }
@@ -144,6 +144,9 @@ public class KeyService extends Service {
 
     RSAPublicKey getPublicKey(String partnerName){
         String pubkey = (String) partnerKeys.get(partnerName);
+        if(pubkey == null){
+            return null;
+        }
         byte[] encoded = Base64.decode(pubkey, Base64.DEFAULT);
         X509EncodedKeySpec spec = new X509EncodedKeySpec(encoded);
         try {

@@ -2,11 +2,14 @@ package edu.temple.mapchat.chat;
 
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
@@ -31,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.temple.mapchat.KeyService;
 import edu.temple.mapchat.MainActivity;
 import edu.temple.mapchat.R;
 
@@ -56,6 +60,7 @@ public class ChatActivity extends AppCompatActivity {
             String to = intent.getStringExtra("to");
             String sender = intent.getStringExtra("partner");
             String content = intent.getStringExtra("message");
+            content = decryptMessage(content);
             if(sender.equals(mPartnerName)) {
                 Message message = new Message(sender, content);
                 mMessageList.add(message);
@@ -65,6 +70,10 @@ public class ChatActivity extends AppCompatActivity {
             //else not our message to deal with.
         }
     };
+    private boolean mBounded = false;
+    private KeyService mKeyService;
+    private boolean mDecryptOnBind;
+    private String mCipher;
 
     @Override
     protected void onStart() {
@@ -87,7 +96,12 @@ public class ChatActivity extends AppCompatActivity {
         Intent intent = getIntent();
         mUsername = intent.getStringExtra(MainActivity.USERNAME_EXTRA);
         mPartnerName = intent.getStringExtra(MainActivity.PARTNER_NAME_EXTRA);
+        String content = intent.getStringExtra("content");
+
         Log.d("Intent Contents", mUsername + ", " + mPartnerName);
+
+        Intent serviceIntent = new Intent(this,KeyService.class);
+        bindService(serviceIntent, mConnection, BIND_AUTO_CREATE);
 
         mSavedChatTag = CHAT_TAG_PREFIX + mPartnerName;
 
@@ -100,6 +114,23 @@ public class ChatActivity extends AppCompatActivity {
         else{
             mMessageList = new ArrayList<>();
         }
+        if(content != null){
+            //we have to create a message now!
+
+            if(mBounded) {
+                content = mKeyService.decrypt(content);
+                Message msg = new Message(mPartnerName, content);
+                mMessageList.add(msg);
+                mMessageAdapter.notifyDataSetChanged();
+                mMessageRecycler.scrollToPosition(mMessageList.size() -1);
+
+            }
+            else {
+                mDecryptOnBind = true;
+                mCipher = content;
+            }
+
+        }
 
         mMessageRecycler = findViewById(R.id.reyclerview_message_list);
         mMessageAdapter = new MessageListAdapter(this, mMessageList, mUsername);
@@ -110,7 +141,6 @@ public class ChatActivity extends AppCompatActivity {
 
         //Setup send button.
         //TODO encrypt sent text.
-        //TODO send message to server.
         Button sendBttn = findViewById(R.id.button_chatbox_send);
         final EditText messageContent = findViewById(R.id.edittext_chatbox);
         sendBttn.setOnClickListener(new View.OnClickListener() {
@@ -127,6 +157,7 @@ public class ChatActivity extends AppCompatActivity {
                 Message msg = new Message(mUsername, content);
                 mMessageList.add(msg);
                 mMessageAdapter.notifyDataSetChanged();
+                mMessageRecycler.scrollToPosition(mMessageList.size() -1);
                 messageContent.setText("");
                 sendMessage(msg);
 
@@ -146,6 +177,7 @@ public class ChatActivity extends AppCompatActivity {
         final String user = msg.getSender();
         final String partnerUser = mPartnerName;
         final String message = msg.getContent();
+        final String encryptedMessage = mKeyService.encrypt(message, partnerUser);
 
         Log.d("Send Message Post", user + ", " + partnerUser + ", " + message);
         if(user == null || partnerUser.equals("")|| message == null){
@@ -169,7 +201,7 @@ public class ChatActivity extends AppCompatActivity {
                 Map<String, String> postMap = new HashMap<>();
                 postMap.put("user", user);
                 postMap.put("partneruser", ""+partnerUser);
-                postMap.put("message", ""+ message);
+                postMap.put("message", ""+ encryptedMessage);
                 return postMap;
             }
         };
@@ -198,6 +230,37 @@ public class ChatActivity extends AppCompatActivity {
         else{
             return null;
         }
+    }
+
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mBounded = false;
+            mKeyService = null;
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mBounded = true;
+            KeyService.LocalBinder mLocalBinder = (KeyService.LocalBinder) service;
+
+            mKeyService = mLocalBinder.getService();
+            //If we have been requested to store a key on connection ...
+            if(mDecryptOnBind){
+                String content = mKeyService.decrypt(mCipher);
+                Message msg = new Message(mPartnerName, content);
+                mMessageList.add(msg);
+                mMessageAdapter.notifyDataSetChanged();
+                mMessageRecycler.scrollToPosition(mMessageList.size() -1);
+
+                mDecryptOnBind = false;
+                mCipher = "";
+            }
+        }
+    };
+
+    String decryptMessage(String message){
+        return mKeyService.decrypt(message);
     }
 }
 
