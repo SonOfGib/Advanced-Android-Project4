@@ -2,7 +2,7 @@ package edu.temple.sean.chatapplicationlab4.chat;
 
 import edu.temple.sean.chatapplicationlab4.Partner;
 
-class Message {
+public class Message {
 
     private String sender;
     private String content;

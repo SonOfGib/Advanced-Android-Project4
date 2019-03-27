@@ -15,10 +15,41 @@
       },
       "oauth_client": [
         {
-          "client_id": "459221917665-pjgfl0t7q1aadg79rr4danl8cdau8h4j.apps.googleusercontent.com",
+          "client_id": "459221917665-ron0jshnl8sdfnmsp4ba9h2bb6ds1fnr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnDDZVwU3YlN1Fz0CZHC04W7vEej_sUwc"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:459221917665:android:2bffedba3171784b",
+        "android_client_info": {
+          "package_name": "edu.temple.sean.pleaseygod"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "459221917665-m2m24fctoj0ja7s6onjrnbo8umt5dqme.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "edu.temple.sean.chatapplicationlab4",
+            "package_name": "edu.temple.sean.pleaseygod",
             "certificate_hash": "f8dceaab905ad85f8dcbc2f89888c07209d1b912"
           }
         },

@@ -2,6 +2,7 @@ package edu.temple.sean.chatapplicationlab4;
 
 
 import android.content.Context;
+import android.content.Intent;
 import android.support.annotation.NonNull;
 import android.support.v4.view.ViewPager;
 import android.support.v7.widget.RecyclerView;
@@ -13,16 +14,21 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 
+import edu.temple.sean.chatapplicationlab4.chat.ChatActivity;
+
 public class PartnerRecyclerViewAdapter extends RecyclerView.Adapter<PartnerRecyclerViewAdapter.ViewHolder> {
 
     private LayoutInflater inflater;
     private Context context;
     private ArrayList<Partner> partners;
+    private OnPartnerClickedListener mListener;
 
-    public PartnerRecyclerViewAdapter(Context context, ArrayList<Partner> partners) {
+    public PartnerRecyclerViewAdapter(Context context, ArrayList<Partner> partners,
+                                      OnPartnerClickedListener listener) {
         inflater = LayoutInflater.from(context);
         this.context = context;
         this.partners = partners;
+        mListener = listener;
     }
 
     public void setPartners(ArrayList<Partner> newList){
@@ -32,21 +38,20 @@ public class PartnerRecyclerViewAdapter extends RecyclerView.Adapter<PartnerRecy
 
     @NonNull
     @Override
-    public ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int viewType) {
         final View root = inflater.inflate(R.layout.fragment_partner, viewGroup, false);
-        root.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(final View view) {
-                //int itemPosition = root.getChildLayoutPosition(view);
-                //String item = mList.get(itemPosition);
-            }
-        });
         ViewHolder holder = new ViewHolder(root);
         return holder;
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder viewHolder, int i) {
+    public void onBindViewHolder(@NonNull final ViewHolder viewHolder, int i) {
+        viewHolder.name.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mListener.onPartnerClicked(viewHolder.getAdapterPosition());
+            }
+        });
         viewHolder.name.setText(partners.get(i).getName());
     }
 
@@ -55,7 +60,7 @@ public class PartnerRecyclerViewAdapter extends RecyclerView.Adapter<PartnerRecy
         return partners.size();
     }
 
-    class ViewHolder extends RecyclerView.ViewHolder {
+    class ViewHolder extends RecyclerView.ViewHolder{
         TextView name;
 
         ViewHolder(View itemView){
@@ -64,5 +69,10 @@ public class PartnerRecyclerViewAdapter extends RecyclerView.Adapter<PartnerRecy
         }
 
 
+
+    }
+
+    public interface OnPartnerClickedListener {
+        void onPartnerClicked(int position);
     }
 }

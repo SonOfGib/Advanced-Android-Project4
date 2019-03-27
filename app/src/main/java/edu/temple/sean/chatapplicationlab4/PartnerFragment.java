@@ -22,7 +22,7 @@ import java.util.Collections;
  * Activities containing this fragment MUST implement the {@link OnListFragmentInteractionListener}
  * interface.
  */
-public class PartnerFragment extends Fragment {
+public class PartnerFragment extends Fragment implements PartnerRecyclerViewAdapter.OnPartnerClickedListener {
 
     // TODO: Customize parameter argument names
     private static final String ARG_COLUMN_COUNT = "column-count";
@@ -66,7 +66,7 @@ public class PartnerFragment extends Fragment {
         RecyclerView recyclerView = (RecyclerView) view.findViewById(R.id.list);
         recyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
 
-        mAdapter = new PartnerRecyclerViewAdapter(getContext(), partnerList);
+        mAdapter = new PartnerRecyclerViewAdapter(getContext(), partnerList, this);
         recyclerView.setAdapter(mAdapter);
         return view;
     }
@@ -95,6 +95,11 @@ public class PartnerFragment extends Fragment {
         mListener = null;
     }
 
+    @Override
+    public void onPartnerClicked(int position) {
+        mListener.onListFragmentInteraction(partnerList.get(position));
+    }
+
     /**
      * This interface must be implemented by activities that contain this
      * fragment to allow an interaction in this fragment to be communicated
@@ -106,7 +111,6 @@ public class PartnerFragment extends Fragment {
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnListFragmentInteractionListener {
-        // TODO: Update argument type and name
         void onListFragmentInteraction(Partner item);
     }
 }

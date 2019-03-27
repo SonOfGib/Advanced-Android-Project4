@@ -480,8 +480,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //Useless
     @Override
     public void onListFragmentInteraction(Partner item) {
-        //TODO: Is this necessary?
         Intent intent = new Intent(this, ChatActivity.class);
+        if(item.getName().equals(mUsername)){
+            Toast.makeText(this, "You can't send a message to yourself!",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        intent.putExtra(USERNAME_EXTRA, mUsername);
+        intent.putExtra(PARTNER_NAME_EXTRA, item.getName());
         startActivity(intent);
     }
 }

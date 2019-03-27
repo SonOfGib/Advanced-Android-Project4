@@ -12,6 +12,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <service
+            android:name=".MessagingService"
+            android:enabled="true"
+            android:exported="true">
+        </service>
+        <service android:name=".KeyService" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyDWRjX1XVwj8rTLcOiYMfMcI1OEDP85-6w"/>
@@ -27,8 +33,6 @@
             android:launchMode="singleTop">
 
         </activity>
-        <service android:name=".MessagingService" />
-        <service android:name=".KeyService" />
     </application>
 
 </manifest>
