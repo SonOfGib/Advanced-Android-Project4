@@ -438,6 +438,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onDestroy() {
         super.onDestroy();
         lm.removeUpdates(ll);
+        if (mBounded) {
+            unbindService(mConnection);
+            mBounded = false;
+        }
     }
 
     @Override
@@ -445,20 +449,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onStart();
         LocalBroadcastManager.getInstance(this).registerReceiver(messageReceiver,
                 new IntentFilter("new_message"));
-        if (mBounded) {
-            unbindService(mConnection);
-            mBounded = false;
-        }
+//        if (mBounded) {
+//            unbindService(mConnection);
+//            mBounded = false;
+//        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(messageReceiver);
-        if (mBounded) {
-            unbindService(mConnection);
-            mBounded = false;
-        }
     }
 
     /**

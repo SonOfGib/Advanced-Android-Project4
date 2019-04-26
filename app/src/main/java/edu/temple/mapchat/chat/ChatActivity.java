@@ -213,6 +213,10 @@ public class ChatActivity extends AppCompatActivity {
         super.onDestroy();
         String json = logToJson();
         mPrefs.edit().putString(mSavedChatTag, json).apply();
+        if(mBounded){
+            unbindService(mConnection);
+            mBounded = false;
+        }
 
     }
 
